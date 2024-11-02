@@ -1,0 +1,43 @@
+#+title: Event System
+* Reactive System
+- Respond to Events
+- Control Flow via Events
+- Synchronous
+- Spawn async Tasks
+
+** Arch
+*** Collect Events
+Generators, Handlers
+(keypress, Timeout, Packet recieved)
+*** Consume Events
+Consume or partially Consume Events
+Sync and Async Actions -> Promise Queue
+Scheduler for Event Handeling?
+(keypress->GUIevent, network->update Value/create new Event)
+*** Reactive class
+gets event queue -> regsters notifys -> deaccloc on destruct
+call member functions (MACROS)
+
+** Example
+- Click Event :: Spawn Click Event with screen pos
+- Analyse Screen pos -> spawn specific event (Card Clicked)
+- Card :: GUI Event + Send Packet
+- Network disconnet :: Warining with Timeout
+- AssetFiles Changed
+- Asset Loaded
+
+** Systems
+*** Event Queue
+- Contains spawned events
+- Forward Events to specified Handlers, multiple possible
+- Cleanup events once Handled
+- Thread Safe??
+- std::any
+*** Handlerers
+Add Handlers for specific Events
+*** Timeouts and Watchers
+- Set Timeouts -> spawn events
+- timestamp queue
+- Repeated Intervals
+*** Async Jobs
+- Spawn new Thread for Task -> wait for Promise -> Spawn Event
