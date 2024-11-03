@@ -5,7 +5,7 @@
 - Synchronous
 - Spawn async Tasks
 
-** Arch
+** Idea
 *** Collect Events
 Generators, Handlers
 (keypress, Timeout, Packet recieved)
@@ -33,11 +33,15 @@ call member functions (MACROS)
 - Cleanup events once Handled
 - Thread Safe??
 - std::any
-*** Handlerers
-Add Handlers for specific Events
-*** Timeouts and Watchers
+**** Modules
+- Can be optionally implemented
+  Template derive virtual
+***** Timeouts and Watchers
 - Set Timeouts -> spawn events
 - timestamp queue
 - Repeated Intervals
-*** Async Jobs
+***** Async Jobs
 - Spawn new Thread for Task -> wait for Promise -> Spawn Event
+*** Reactive Class
+Register handelers to member functions
+cleanup on destruction
