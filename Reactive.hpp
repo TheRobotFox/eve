@@ -85,24 +85,18 @@ namespace eve::reactive {
                 for_each(handle_copy, [d](auto f){f(std::move(d));});
             }
     #else
+            std::function<void(const Event &ev)> handle;
+
+            template<Event E>
+            Handler()
+                :
             Handler(std::source_location parrent=std::source_location::current())
             : src(parrent){}
             const std::source_location src;
         auto handle(const Event &ev) -> void override
         {
-            try{
-                using namespace std::ranges;
-                T d = std::any_cast<T>(ev.data);
-
-                for_each(handle_ref, [&d](auto f){f(d);});
-                for_each(handle_copy, [d](auto f){f(std::move(d));});
-
-            } catch(std::bad_any_cast e) {
-                std::println("[ERROR] in {}: std::any_cast<{}> failed handeling event for class {} at {}:{}!", std::source_location::current().function_name(), typeid(T).name(), src.function_name(), src.file_name(), src.line());
-                std::println("Event({}) has type {} but expected {}", ev.name, ev.data.type().name(), typeid(T).name());
-                std::println("Note: Event created at\n{}", ev.creation);
-                exit(5);
-            }
+            for_each(handle_ref, [&ev](auto f){ev.apply(f);});
+            for_each(handle_copy, [&ev](auto f){ev.apply(f);});
         }
     #endif
             auto addHandle(std::function<void(T)> &&f)

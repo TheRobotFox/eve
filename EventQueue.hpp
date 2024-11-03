@@ -25,13 +25,6 @@ namespace eve {
         virtual auto notify(Event ev) -> void = 0;
     };
 
-    struct TimedEvent {
-        std::chrono::time_point<std::chrono::steady_clock> creation;
-        std::chrono::microseconds timeout;
-        bool persistent;
-        Event ev;
-    };
-
     struct FutureInterface {
         virtual auto ready() -> bool = 0;
         virtual auto getEvent() -> Event = 0;
@@ -51,19 +44,11 @@ namespace eve {
             return {event, future.get()};
         }
     };
-    template<class T>
-    concept EVModule = requires(T c, std::queue<Event> &queue)
-    {
-        {c.run(queue)} -> std::same_as<void>;
-    };
-
-    class EventQueue
+    class Handleing
     {
         friend reactive::ReactiveStatic<>;
         friend reactive::Reactive;
         using Event = Event;
-        std::queue<Event> m_queue;
-        std::list<TimedEvent> m_timeouts;
         std::list<std::unique_ptr<FutureInterface>> m_futures;
         std::unordered_map<Event::identifier,
             std::unordered_set<ReactiveInterface*>> m_handlers;
@@ -74,11 +59,6 @@ namespace eve {
             else m_handlers[ev].insert(self);
         }
     public:
-        template<typename T>
-        auto addEvent(Event::identifier event, T &&data)
-        {
-            m_queue.emplace(event, std::forward<T>(data));
-        }
         template<typename T>
         auto addEvent(Event::identifier event, T &&data, std::chrono::milliseconds delay, bool persistent=false)
         {
@@ -91,7 +71,7 @@ namespace eve {
             m_futures.emplace_back(new FutureHandle<T>(event, future));
         }
 
-        auto runAll() -> void {
+        auto run() -> void {
             m_timeouts.remove_if([this](TimedEvent &te) -> bool{
                 auto now = std::chrono::steady_clock::now();
                 if(te.creation+te.timeout>now) return false;
@@ -113,6 +93,15 @@ namespace eve {
             next:
                 m_queue.pop();
             }
+        }
+    };
+
+    template<EVModule... Fs>
+    struct Eve : public Fs...
+    {
+        auto run()
+        {
+            Fs::run()
         }
     };
 

@@ -5,7 +5,7 @@
 - Synchronous
 - Spawn async Tasks
 
-** Idea
+** Concepts
 *** Collect Events
 Generators, Handlers
 (keypress, Timeout, Packet recieved)
@@ -33,15 +33,81 @@ call member functions (MACROS)
 - Cleanup events once Handled
 - Thread Safe??
 - std::any
-**** Modules
 - Can be optionally implemented
   Template derive virtual
-***** Timeouts and Watchers
+*** Timeouts and Watchers
 - Set Timeouts -> spawn events
 - timestamp queue
 - Repeated Intervals
-***** Async Jobs
+*** Async Jobs
 - Spawn new Thread for Task -> wait for Promise -> Spawn Event
+*** Events
+concept
+- any Event
+- Debug Event
+
 *** Reactive Class
 Register handelers to member functions
 cleanup on destruction
+*** Generics
+template lambdas
+
+
+
+
+
+* [ ] EventQueue
+- Core component of system
+- Generic std::list of Event type
+** Done addEvent(Event)
+** TODO Event lifetime
+- Modules other than Handler can mark Events for removal
+
+* IDEA Eve
+- Component implementing requested Features as Modules
+- EventQueue& is given to each Module to submitt / consume Events
+* [ ] Modules
+- Extra Features can be implemented into Eve
+- classes can requires specific Feature set from Eve to work
+- Implementation with template Packs
+- Horizontal Architekture instead of Vertical
+
+** [ ] Timeout / Intervals
+- Queue a Event to be emitted after delay
+- Queue Events to be emitted in specific Intervals
+- Stop Intervals from beeing executed
+*** Arch
+#+begin_src c++
+template<class Event>
+struct TimedEvent {
+        std::chrono::time_point<std::chrono::steady_clock> time_begin;
+        std::chrono::microseconds interval;
+        bool persistent;
+        Event ev;
+};
+
+if(te.persistent){
+    te.time_begin+=te.interval;
+} else {
+    list.erase(te);
+}
+#+end_src
+
+
+** [ ] Async
+- Wait for a future object and create an Event from it
+*** [ ] Arch
+- requires known Event construction / setting data
+- alternative with lambda
+** Handlers
+- Register Handelers for events
+- Consume Events / Mark for Removal
+
+** IDEA Resource Loader
+** IDEA File Watcher
+** IDEA User defined Modules
+* Reactive
+- base class allowing deriving classes to react  to Events
+- register callbacks to events
+- callbacks get turned into handlers
+- requires deduce Event
