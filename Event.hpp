@@ -4,71 +4,95 @@
 #include <any>
 #include <bits/move_only_function.h>
 #include <cassert>
-#include <functional>
 #include <print>
 #include <source_location>
 #include <stacktrace>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 namespace eve::event {
+
+    template<class T>
+    concept Event = requires(T ev) {
+        {ev.getName()} -> std::same_as<const typename T::id&>;
+    };
+
+    template<class E>
+    concept DataEvent = Event<E> && requires(E ev, E::id name) {
+        {ev.getData()} -> std::same_as<const typename E::value_type&>;
+    };
+
+    template<class E>
+    concept GenericEvent = Event<E> && !DataEvent<E> && requires(E ev) {
+        {ev.template getData()};
+    };
+    template<class E, class T>
+    E construct(typename E::id &name, T data){return {name, data};}
+    template<class E>
+    concept EventConstruction = (DataEvent<E> &&
+        requires(E::id name, E::value_type &&data){
+            E{name, data}; // Trivial construction})
+        }) || (GenericEvent<E> && requires(E::id name){
+                typename E::id;
+                // construct<E>(name, 0);
+        });
 
     class EventAny
     {
     public:
         using id = std::string;
         using generic = std::true_type;
-        using handle_copy = std::true_type;
-        using handle_ref = std::true_type;
 
     protected:
         id name;
         std::any data;
 
-        template<class C, class T>
-        auto get(this const C& self) -> T
-        {
-            return C::template unwrap<T>();
+    public:
+        auto getName() const -> const id&{
+            return name;
         }
-
         template<class T>
-        auto unwrap() -> T
+        auto getData() const -> const T
         {
             return std::any_cast<T>(data);
         }
-    public:
         template<class T>
-        void apply(std::move_only_function<void(T)> fn_copy)
-        {
-            function(get<T>());
-        }
-        template<class T>
-        void apply(std::move_only_function<void(const T&)> fn_ref)
-        {
-            function(get<const T&>());
-        }
+        EventAny(id name, T &&data) : name(std::move(name)), data(std::move(data))
+        {}
     };
 
     class Debug : public EventAny
     {
         std::stacktrace creation=std::stacktrace::current();
         template<class T>
-        auto unwrap() -> T
+        auto get(std::optional<std::source_location> handler_location={}) -> const T&
         {
             try{
-                return std::any_cast<T>(data);
+                return EventAny::getData<T>();
             } catch(std::bad_any_cast e) {
+                if(auto src = handler_location){
                 std::println("[ERROR] in {}: std::any_cast<{}> failed handeling event for class {} at {}:{}!", std::source_location::current().function_name(),
                              typeid(T).name(),
-                             src.function_name(),
-                             src.file_name(),
-                             src.line());
-                std::println("Event({}) has type {} but expected {}", ev.name, ev.data.type().name(), typeid(T).name());
-                std::println("Note: Event created at\n{}", ev.creation);
+                             src->function_name(),
+                             src->file_name(),
+                             src->line());
+                } else {
+                    std::println("[ERROR] in {}: std::any_cast<{}> failed unknown Handler! Please refer to stacktrace",
+                                 std::source_location::current().function_name(),
+                                 typeid(T).name());
+                }
+                std::println("Event({}) has type {} but expected {}", getName(), data.type().name(), typeid(T).name());
+                std::println("Note: Event created at\n{}", creation);
                 exit(5);
             }
         }
+    public:
+        using id = std::string;
+        using generic = std::true_type;
     };
+
+
 
 }
 #endif // EVENT_H_

@@ -1,23 +1,25 @@
-#include "EventQueue.hpp"
-#include "Reactive.hpp"
 #include <chrono>
 #include <iostream>
 #include <memory>
 #include <thread>
 #include <tuple>
 #include <utility>
+#include "Eve.hpp"
+#include "EveDef.hpp"
+#include "Reactive.hpp"
 
-class Test : public eve::reactive::Reactive
+template<eve::EveType EV>
+class Test : public eve::reactive::Reactive<EV>
 {
-    auto onTest(const int &i) -> void {
+    auto onTest(int i) -> void {
         std::cout << "Recv Test: " << i << std::endl;
     }
     public:
-        Test(eve::EventQueue &queue)
-            : Reactive(queue)
+        Test(EV &ev)
+            : eve::reactive::Reactive<EV>(ev)
         {
-            addHandle("Test", &Test::onTest);
-            addHandle("Pi", &Test::onTest);
+            this->addHandle("Test", &Test::onTest);
+            this->addHandle("Pi", &Test::onTest);
             // m_queue.addEvent("Pi", "c");
         }
 };
@@ -25,12 +27,14 @@ class Test : public eve::reactive::Reactive
 int main()
 {
     using namespace std::chrono_literals;
-    eve::EventQueue q;
+    eve::Default q;
 
-    q.addEvent("Test", 6, 400ms);
-    q.addEvent("PI", 8);
+    q.addInterval(eve::event::EventAny{"Test", 6}, 400ms);
+    q.addEvent({"PI", 8});
+
+    Test t(q);
 
     while(true){
-        q.runAll();
+        q.run();
     }
 }

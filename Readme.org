@@ -66,7 +66,7 @@ template lambdas
 * IDEA Eve
 - Component implementing requested Features as Modules
 - EventQueue& is given to each Module to submitt / consume Events
-* [ ] Modules
+* [ ] Modules / Features
 - Extra Features can be implemented into Eve
 - classes can requires specific Feature set from Eve to work
 - Implementation with template Packs
@@ -104,6 +104,7 @@ if(te.persistent){
 - Consume Events / Mark for Removal
 
 ** IDEA Resource Loader
+** IDEA Supress Events
 ** IDEA File Watcher
 ** IDEA User defined Modules
 * Reactive

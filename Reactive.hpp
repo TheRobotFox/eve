@@ -4,175 +4,206 @@
 #include "Event.hpp"
 #include "EventQueue.hpp"
 #include <algorithm>
-#include <any>
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <source_location>
-#include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <cassert>
 
-namespace eve::reactive {
+#include "EveDef.hpp"
 
-    template<typename... Tp>
-    class ReactiveStatic : public ReactiveInterface
+namespace eve {
+
+    template<event::Event E>
+    struct ReactiveInterface
     {
-        using EventID = EventQueue::Event::identifier;
-        // std::unordered_map<EventQueue::Event::identifier, > // TODO dynamic handlers
-        EventQueue &m_queue;
-        std::tuple<std::pair<EventID, std::function<void(const Tp&)>>...> m_layout;
+        virtual auto notify(const E &ev) -> void = 0;
+    };
 
-        template<class F>
-        auto forLayout(F &&fn)
+    namespace features {
+        template<class EV>
+        concept Listeners = EveType<EV> && requires(EV &r, EV::Event::id ev, ReactiveInterface<typename EV::Event> *actor) {
+            r.setListen(ev, actor);
+            r.unsetListen(ev, actor);
+        };
+    }
+
+    namespace modules {
+
+            // TODO React Static -> templated<clsas... ReactImpls>
+        template<class Q> requires features::HandleEvent<Q>
+        class React
         {
-            std::apply([&fn](auto&&... pair){
-                (fn(pair.first, pair.second), ...);
-            }, m_layout);
-        }
-
         public:
-            template<class...>
-            ReactiveStatic(EventQueue &queue,
-                        std::pair<EventID, std::function<void(const Tp&)>>... layout)
-                : m_queue(queue), m_layout(std::forward(layout...))
+            using Event = Q::Event;
+
+            auto unsetListen(Event::id ev, ReactiveInterface<Event>* actor)
             {
-                forLayout([this](const EventID &name, auto& /* ignore */){
-                    m_queue.handlers[name].insert(this);
-                });
+                if(!m_actors.contains(ev)) m_actors[ev]={};
+                else m_actors[ev].erase(actor);
             }
-
-            ~ReactiveStatic()
+            auto setListen(Event::id ev, ReactiveInterface<Event>* actor)
             {
-                forLayout([this](const EventID &name, auto& /* ignore */){
-                    m_queue.handlers[name].erase(this);
-                });
+                if(!m_actors.contains(ev)) m_actors[ev]={actor};
+                else m_actors[ev].insert(actor);
             }
-
-            auto notify(Event ev) -> void override
+            auto run(Q &handle) -> void
             {
-                forLayout([&ev]<class T>(const EventID &name, const std::function<void(const T&)> &f){
-                        if(name!=ev.name) return;
-                        f(std::any_cast<const T&>(ev));
-                    });
+                auto opt = handle.peek();
+                if(!opt) return;
+                const Event &ev = opt.value();
+                if(m_actors.contains(ev.getName())){
+                    std::ranges::for_each(m_actors[ev.getName()], [&ev](auto a){a->notify(ev);});
+                }
             }
-
-    };
-
-
-    struct HandlerInterface
-    {
-        virtual auto handle(const Event &ev) -> void = 0;
-        virtual ~HandlerInterface() = default;
-    };
-    template<typename T>
-    class Handler : public HandlerInterface
-    {
-        std::vector<std::function<void(T)>> handle_copy;
-        std::vector<std::function<void(const T&)>> handle_ref;
-
-        public:
-    #ifdef NDEBUG
-            auto handle(const Event &ev) -> void override
-            {
-                using namespace std::ranges;
-
-                T d = std::any_cast<T>(ev.data);
-
-                for_each(handle_ref, [&d](auto f){f(d);});
-                for_each(handle_copy, [d](auto f){f(std::move(d));});
-            }
-    #else
-            std::function<void(const Event &ev)> handle;
-
-            template<Event E>
-            Handler()
-                :
-            Handler(std::source_location parrent=std::source_location::current())
-            : src(parrent){}
-            const std::source_location src;
-        auto handle(const Event &ev) -> void override
-        {
-            for_each(handle_ref, [&ev](auto f){ev.apply(f);});
-            for_each(handle_copy, [&ev](auto f){ev.apply(f);});
-        }
-    #endif
-            auto addHandle(std::function<void(T)> &&f)
-            {
-                handle_copy.push_back(f);
-            }
-            auto addHandle(std::function<void(const T&)> &&f)
-            {
-                handle_ref.push_back(f);
-            }
-
-    };
-
-    class Reactive : public ReactiveInterface
-    {
-        protected:
-            using EventID = EventQueue::Event::identifier;
         private:
-            using Handlers = std::unordered_map<EventID, std::unique_ptr<HandlerInterface>>;
+            std::unordered_map<typename Event::id,
+                std::unordered_set<ReactiveInterface<Event>*>> m_actors;
+        };
+    }
+
+    namespace reactive {
+
+        // template<typename... Tp>
+        // class ReactiveStatic : public ReactiveInterface
+        // {
+        //     using EventID = EventQueue::Event::identifier;
+        //     // std::unordered_map<EventQueue::Event::identifier, > // TODO dynamic handlers
+        //     EventQueue &m_queue;
+        //     std::tuple<std::pair<EventID, std::function<void(const Tp&)>>...> m_layout;
+
+        //     template<class F>
+        //     auto forLayout(F &&fn)
+        //     {
+        //         std::apply([&fn](auto&&... pair){
+        //             (fn(pair.first, pair.second), ...);
+        //         }, m_layout);
+        //     }
+
+        //     public:
+        //         template<class...>
+        //         ReactiveStatic(EventQueue &queue,
+        //                     std::pair<EventID, std::function<void(const Tp&)>>... layout)
+        //             : m_queue(queue), m_layout(std::forward(layout...))
+        //         {
+        //             forLayout([this](const EventID &name, auto& /* ignore */){
+        //                 m_queue.handlers[name].insert(this);
+        //             });
+        //         }
+
+        //         ~ReactiveStatic()
+        //         {
+        //             forLayout([this](const EventID &name, auto& /* ignore */){
+        //                 m_queue.handlers[name].erase(this);
+        //             });
+        //         }
+
+        //         auto notify(Event ev) -> void override
+        //         {
+        //             forLayout([&ev]<class T>(const EventID &name, const std::function<void(const T&)> &f){
+        //                     if(name!=ev.name) return;
+        //                     f(std::any_cast<const T&>(ev));
+        //                 });
+        //         }
+
+        // };
+
+        template<event::Event E>
+        struct HandlerInterface
+        {
+            virtual auto handle(const E &ev) -> void = 0;
+            virtual ~HandlerInterface() = default;
+        };
+
+        template<event::Event E, typename T>
+        class Handler : public HandlerInterface<E>
+        {
+            std::vector<std::move_only_function<void(const T&)>> m_callbacks;
+            std::vector<std::move_only_function<void(T)>> m_callbacks2;
+
+        public:
+            auto handle(const E &ev) -> void override
+            {
+                for_each(m_callbacks, [&ev](auto &f){f(ev.getData());});
+                for_each(m_callbacks2, [&ev](auto &f){f(ev.getData());});
+            }
+            auto addHandle(std::move_only_function<void(T)> &&f)
+            {
+                m_callbacks2.push_back(f);
+            }
+            auto addHandle(std::move_only_function<void(const T&)> &&f)
+            {
+                m_callbacks.push_back(f);
+            }
+
+        };
+
+        template<EveType EV> requires features::Listeners<EV>
+        class _Reactive : public ReactiveInterface<typename EV::Event>
+        {
+            using Event = EV::Queue::Event;
+            using Handlers = std::unordered_map<typename Event::id, std::move_only_function<void(const Event &)>>;
             Handlers handlers;
         protected:
 
-            EventQueue &m_queue;
-            Reactive(EventQueue &queue)
-                : m_queue(queue)
-            {}
-            ~Reactive()
-            {
-                std::ranges::for_each(handlers, [this](const EventID &eid){
-                    m_queue.handlers[eid].erase(this);
-                }, &Handlers::value_type::first);
-            }
+                EV &m_eve;
+                _Reactive(EV &e)
+                    : m_eve(e)
+                {}
+                ~_Reactive()
+                {
+                    std::ranges::for_each(handlers, [this](const Event::id &eid){
+                        m_eve.unsetListen(eid, this);
+                    }, &Handlers::value_type::first);
+                }
 
+            public:
+                template<typename C, typename A>
+                auto addHandle(this C& self, Event::id &&evName, void(C::* fn)(A)) -> void
+                {
+                    self.m_eve.setListen(evName, &self);
+                    self.handlers[std::move(evName)] = std::move([&self, fn](const Event &ev)->void{(self.*fn)(std::forward<A>(ev.template getData<A>()));});
+                }
+                auto notify(const Event &ev) -> void override
+                {
+                    std::ranges::for_each(handlers, [&ev](auto &pair){
+                        if(ev.getName()==pair.first) pair.second(ev);
+                    });
+                }
+        };
+
+        template<EveType EV> requires features::Listeners<EV>
+        struct Reactive : public _Reactive<EV> {
+                Reactive(EV &e)
+                    : _Reactive<EV>(e)
+                {}
+        };
+
+
+        // Debug specialisation
+        template<EveType EV> requires features::Listeners<EV>
+            && std::same_as<typename EV::Queue::Event, event::Debug>
+        class Reactive<EV> : public _Reactive<EV>{
         public:
-            #ifdef NDEBUG
-            template<typename C, typename A>
-            auto addHandle(this C& self, EventID &&evName, void(C::* fn)(A)) -> void
+            template<class C, typename A>
+            auto addHandle(this C& self,
+                                          EV::Queue::Event::id &&evName, void(C::* fn)(A),
+                                          std::source_location src = std::source_location::current()) -> void
             {
-                self.m_queue.addHandler(evName, &self);
-                self.addHandle(std::move(evName), std::function([&self, fn](A&& val){(self.*fn)(std::forward<A>(val));}));
+                self.m_eve.setListen(evName, &self);
+                self.handlers.emplace({std::move(evName),
+                            std::function([&self, fn, src](const A&& ev){(self.*fn)(std::forward<A>(ev.template get<A>(src)));})});
             }
-            template<typename A>
-            auto addHandle(EventID &&evName, std::function<void(A)> &&fn) -> void
-            {
-                using T = std::remove_cvref_t<A>;
-                if(!handlers.contains(evName)) handlers[evName] = std::make_unique<Handler<T>>();
-
-                auto *handler = dynamic_cast<Handler<T>*>(handlers[evName].get());
-                handler->addHandle(std::function<void(A)>(fn));
-            }
-            #else
-
-            template<typename C, typename A>
-            auto addHandle(this C& self, EventID &&evName, void(C::* fn)(A), std::source_location src=std::source_location::current()) -> void
-            {
-                self.m_queue.addHandler(evName, &self);
-                self.addHandle(std::move(evName), std::function([&self, fn](A&& val){(self.*fn)(std::forward<A>(val));}), src);
-            }
-            template<typename A>
-            auto addHandle(EventID &&evName, std::function<void(A)> &&fn, std::source_location src = std::source_location::current()) -> void
-            {
-                using T = std::remove_cvref_t<A>;
-                if(!handlers.contains(evName)) handlers[evName] = std::make_unique<Handler<T>>(src);
-
-                auto *handler = dynamic_cast<Handler<T>*>(handlers[evName].get());
-                handler->addHandle(std::function<void(A)>(fn));
-            }
-            #endif
-            auto notify(Event ev) -> void override
-            {
-                std::ranges::for_each(handlers, [&ev](auto &pair){
-                    if(ev.name==pair.first) pair.second->handle(ev);
-                });
-            }
-
-    };
+            Reactive(EV &e)
+                : _Reactive<EV>(e)
+            {}
+        };
+    }
 }
 
 #endif // REACTIVE_H_

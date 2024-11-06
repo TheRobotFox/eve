@@ -1,54 +1,20 @@
-#ifndef EVEDEF_H_
-#define EVEDEF_H_
+#ifndef EveDef_H_
+#define EveDef_H_
 
+#include "EventQueue.hpp"
 #include <concepts>
-#include <queue>
 namespace eve {
 
-    template<class T>
-    concept Event = requires(T ev) {
-        typename T::id;
-        typename T::generic;
-    };
+    template<class eve>
+    concept EveType = event_queue::EventQueue<typename eve::Queue>;
 
-    template<class Event>
-    class EveCore
+
+    template<template<class Q> class T, class Q>
+    concept Module = requires(T<Q> &c, Q &features)
     {
-        std::queue<Event> m_queue;
-
-    public:
-        using EventID = typename Event::identifier;
-
-        template<typename T>
-        auto addEvent(EventID event, T &&data)
-        {
-            m_queue.emplace(event, std::forward<T>(data));
-        }
+        {c.run(features)} -> std::same_as<void>;
     };
-
-    template<class Event, class T>
-    concept Module = requires(T c, std::queue<Event> &queue, EveCore<Event> core)
-    {
-        T::T(std::ref(core));
-        {c.m_queue} -> std::same_as<decltype(queue)&>;
-        {c.run()} -> std::same_as<void>;
-    };
-
-
-    template<class Event, Module<Event>... Mp>
-    class EventQueue : public EveCore<Event>, public Mp...
-    {
-    public:
-        EventQueue()
-            : Mp(*this) ...
-        {}
-        auto run() -> void
-        {
-            (Mp::run(), ...);
-        }
-    };
-
-    using Eve = EventQueue<Timeouts, Async, Handlers>;
 
 }
-#endif // EVEDEF_H_
+
+#endif // EveDef_H_

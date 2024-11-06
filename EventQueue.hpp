@@ -3,107 +3,90 @@
 
 #include "Event.hpp"
 #include <algorithm>
-#include <chrono>
 #include <concepts>
-#include <future>
-#include <iostream>
-#include <list>
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
+#include <optional>
 
-namespace eve::reactive{
-    template<typename... Tp>
-    class ReactiveStatic;
-    class Reactive;
-}
 namespace eve {
 
-    struct ReactiveInterface
-    {
-        virtual auto notify(Event ev) -> void = 0;
-    };
-
-    struct FutureInterface {
-        virtual auto ready() -> bool = 0;
-        virtual auto getEvent() -> Event = 0;
-    };
-
-    template<typename T>
-    struct FutureHandle : public FutureInterface
-    {
-        Event::identifier event;
-        std::future<T> future;
-        auto ready() -> bool override
+    namespace features {
+        template<class T>
+        concept SpawnEvent = event::Event<typename T::Event> && requires(T& se, T::Event &&ev)
         {
-            return future.wait_for(std::chrono::microseconds(0))!=std::future_status::timeout;
-        }
-        auto getEvent() -> Event override
-        {
-            return {event, future.get()};
-        }
-    };
-    class Handleing
-    {
-        friend reactive::ReactiveStatic<>;
-        friend reactive::Reactive;
-        using Event = Event;
-        std::list<std::unique_ptr<FutureInterface>> m_futures;
-        std::unordered_map<Event::identifier,
-            std::unordered_set<ReactiveInterface*>> m_handlers;
+            {se.addEvent(std::move(ev))} -> std::same_as<void>;
+        };
 
-        auto addHandler(Event::identifier ev, ReactiveInterface *self)
-        {
-            if(!m_handlers.contains(ev)) m_handlers[ev]={self};
-            else m_handlers[ev].insert(self);
-        }
-    public:
-        template<typename T>
-        auto addEvent(Event::identifier event, T &&data, std::chrono::milliseconds delay, bool persistent=false)
-        {
-            m_timeouts.emplace_back(std::chrono::steady_clock::now(),
-                              delay, persistent, Event{event, std::forward<T>(data)});
-        }
-        template<typename T>
-        auto addAsync(Event::identifier event, std::future<T> future)
-        {
-            m_futures.emplace_back(new FutureHandle<T>(event, future));
-        }
+        template<class T>
+        concept HandleEvent = event::Event<typename T::Event> && requires(T &he) {
+            {he.peek()} -> std::same_as<std::optional<const typename T::Event&>>;
+        };
 
-        auto run() -> void {
-            m_timeouts.remove_if([this](TimedEvent &te) -> bool{
-                auto now = std::chrono::steady_clock::now();
-                if(te.creation+te.timeout>now) return false;
-                if(te.persistent){
-                    m_queue.push(te.ev);
-                    te.creation += te.timeout;
-                    return false;
-                }
-                m_queue.push(std::move(te.ev));
-                return true;
-            });
-            while(!m_queue.empty()){
-                Event &e = m_queue.front();
-                if(!m_handlers.contains(e.name) || m_handlers[e.name].size()==0){ std::cout << "[WARNING] Unhandled Event: " << e.name << std::endl;
-                    goto next;
-                }
-                std::ranges::for_each(m_handlers[e.name], [&e](ReactiveInterface *r){r->notify(e);});
+        template<class T>
+        concept ConsumeEvent = event::Event<typename T::Event> && requires(T &ce) {
+            ce.pop();
+        };
+    }
+    namespace event_queue{
 
-            next:
+        template<class Q>
+        concept EventQueue = features::SpawnEvent<Q> && features::HandleEvent<Q> && features::ConsumeEvent<Q> && requires(Q &q){
+            {q.empty()} -> std::same_as<bool>;
+        };
+
+        template<class Queue>
+        class EventQueueCore
+        {
+            Queue m_queue;
+
+        public:
+            using Event = Queue::value_type;
+            using EventID = typename Event::id;
+
+            auto addEvent(const Event &event) -> void
+            {
+                m_queue.emplace(event);
+            }
+            auto peek() -> std::optional<const Event&>
+            {
+                if(m_queue.empty()) return {};
+                return m_queue.front();
+            }
+            auto pop() -> void
+            {
                 m_queue.pop();
             }
-        }
-    };
+            auto empty() -> bool
+            {
+                return m_queue.empty();
+            }
+            EventQueueCore(const EventQueueCore&) = delete;
+            EventQueueCore() = default;
 
-    template<EVModule... Fs>
-    struct Eve : public Fs...
-    {
-        auto run()
+        };
+        template<event::Event E>
+        class DefaultQueue : public EventQueueCore<std::queue<E>>
+        {};
+
+        template<event::Event E, typename Q = std::priority_queue<std::pair<int, E>,
+                                        std::vector<std::pair<int, E>>,
+                                        decltype([](auto &a, auto &b){return a.first>b.first;})>>
+        class PriorityQueue : public EventQueueCore<Q>
         {
-            Fs::run()
-        }
-    };
+        public:
+            using Event = E;
+            auto addEvent(Event &&event, int prio=0) -> void
+            {
+                EventQueueCore<Q>::addEvent(std::make_pair(prio, event));
+            }
+                auto peek() -> std::optional<const Event&>
+            {
+                if(EventQueueCore<Q>::empty()) return {};
+                return EventQueueCore<Q>::peek().second;
+            }
+        };
+
+    }
 
 }
 
