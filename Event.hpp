@@ -15,7 +15,7 @@ namespace eve::event {
 
     template<class T>
     concept Event = requires(T ev) {
-        {ev.getName()} -> std::same_as<const typename T::id&>;
+        {ev.name} -> std::same_as<const typename T::id&>;
     };
 
     template<class E>
@@ -40,25 +40,22 @@ namespace eve::event {
 
     class EventAny
     {
+    protected:
+        std::any data;
+
     public:
         using id = std::string;
         using generic = std::true_type;
 
-    protected:
-        id name;
-        std::any data;
+        const id name;
 
-    public:
-        auto getName() const -> const id&{
-            return name;
-        }
         template<class T>
         auto getData() const -> const T
         {
             return std::any_cast<T>(data);
         }
         template<class T>
-        EventAny(id name, T &&data) : name(std::move(name)), data(std::move(data))
+        EventAny(id name, T &&data) : data(std::move(data)), name(std::move(name))
         {}
     };
 
@@ -82,7 +79,7 @@ namespace eve::event {
                                  std::source_location::current().function_name(),
                                  typeid(T).name());
                 }
-                std::println("Event({}) has type {} but expected {}", getName(), data.type().name(), typeid(T).name());
+                std::println("Event({}) has type {} but expected {}", name, data.type().name(), typeid(T).name());
                 std::println("Note: Event created at\n{}", creation);
                 exit(5);
             }

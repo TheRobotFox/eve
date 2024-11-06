@@ -16,6 +16,7 @@
 #include <cassert>
 
 #include "EveDef.hpp"
+#include "Feature.hpp"
 
 namespace eve {
 
@@ -36,11 +37,11 @@ namespace eve {
     namespace modules {
 
             // TODO React Static -> templated<clsas... ReactImpls>
-        template<class Q> requires features::HandleEvent<Q>
-        class React
+        template<EveType EV>
+        class React : public Require<EV, features::Handle>
         {
         public:
-            using Event = Q::Event;
+            using Event = EV::Event;
 
             auto unsetListen(Event::id ev, ReactiveInterface<Event>* actor)
             {
@@ -52,13 +53,11 @@ namespace eve {
                 if(!m_actors.contains(ev)) m_actors[ev]={actor};
                 else m_actors[ev].insert(actor);
             }
-            auto run(Q &handle) -> void
+            // callback
+            auto handle(const Event &ev) -> void
             {
-                auto opt = handle.peek();
-                if(!opt) return;
-                const Event &ev = opt.value();
-                if(m_actors.contains(ev.getName())){
-                    std::ranges::for_each(m_actors[ev.getName()], [&ev](auto a){a->notify(ev);});
+                if(m_actors.contains(ev.name)){
+                    std::ranges::for_each(m_actors[ev.name], [&ev](auto a){a->notify(ev);});
                 }
             }
         private:
@@ -143,10 +142,10 @@ namespace eve {
 
         };
 
-        template<EveType EV> requires features::Listeners<EV>
+        template<EveType EV> requires features::Listeners<EV> && features::SpawnEvent<EV>
         class _Reactive : public ReactiveInterface<typename EV::Event>
         {
-            using Event = EV::Queue::Event;
+            using Event = EV::Event;
             using Handlers = std::unordered_map<typename Event::id, std::move_only_function<void(const Event &)>>;
             Handlers handlers;
         protected:
@@ -172,12 +171,12 @@ namespace eve {
                 auto notify(const Event &ev) -> void override
                 {
                     std::ranges::for_each(handlers, [&ev](auto &pair){
-                        if(ev.getName()==pair.first) pair.second(ev);
+                        if(ev.name==pair.first) pair.second(ev);
                     });
                 }
         };
 
-        template<EveType EV> requires features::Listeners<EV>
+        template<EveType EV>
         struct Reactive : public _Reactive<EV> {
                 Reactive(EV &e)
                     : _Reactive<EV>(e)
@@ -186,14 +185,13 @@ namespace eve {
 
 
         // Debug specialisation
-        template<EveType EV> requires features::Listeners<EV>
-            && std::same_as<typename EV::Queue::Event, event::Debug>
+        template<EveType EV> requires std::same_as<typename EV::Queue::Event, event::Debug>
         class Reactive<EV> : public _Reactive<EV>{
         public:
             template<class C, typename A>
             auto addHandle(this C& self,
-                                          EV::Queue::Event::id &&evName, void(C::* fn)(A),
-                                          std::source_location src = std::source_location::current()) -> void
+                            EV::Event::id &&evName, void(C::* fn)(A),
+                            std::source_location src = std::source_location::current()) -> void
             {
                 self.m_eve.setListen(evName, &self);
                 self.handlers.emplace({std::move(evName),

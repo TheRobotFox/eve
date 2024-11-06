@@ -1,12 +1,12 @@
+#include "Eve.hpp"
+#include "Reactive.hpp"
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <string_view>
 #include <thread>
 #include <tuple>
 #include <utility>
-#include "Eve.hpp"
-#include "EveDef.hpp"
-#include "Reactive.hpp"
 
 template<eve::EveType EV>
 class Test : public eve::reactive::Reactive<EV>
@@ -23,14 +23,13 @@ class Test : public eve::reactive::Reactive<EV>
             // m_queue.addEvent("Pi", "c");
         }
 };
-
 int main()
 {
     using namespace std::chrono_literals;
     eve::Default q;
 
-    q.addInterval(eve::event::EventAny{"Test", 6}, 400ms);
-    q.addEvent({"PI", 8});
+    // q.addInterval(eve::event::EventAny{"Test", 6}, 400ms, true);
+    q.addEvent({"Pi", 8});
 
     Test t(q);
 

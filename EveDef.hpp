@@ -5,9 +5,10 @@
 #include <concepts>
 namespace eve {
 
-    template<class eve>
-    concept EveType = event_queue::EventQueue<typename eve::Queue>;
-
+    template<class EV>
+    concept EveType = requires(EV &e) {
+        typename EV::Event;
+    };
 
     template<template<class Q> class T, class Q>
     concept Module = requires(T<Q> &c, Q &features)

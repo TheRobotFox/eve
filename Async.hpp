@@ -1,16 +1,17 @@
 #ifndef ASYNC_H_
 #define ASYNC_H_
 
+#include "EveDef.hpp"
 #include "Event.hpp"
 #include "EventQueue.hpp"
+#include "Feature.hpp"
 #include <future>
 #include <list>
 #include <memory>
 
 namespace eve::modules {
 
-    template<class Q> requires features::SpawnEvent<Q>
-        && event::EventConstruction<typename Q::Event>
+    template<EveType EV> requires event::EventConstruction<typename EV::Event>
     class Async{
         public:
         auto run(Q&_) -> void {
@@ -18,12 +19,11 @@ namespace eve::modules {
         }
     };
 
-    template<class Q> requires features::SpawnEvent<Q>
-        && event::EventConstruction<typename Q::Event>
-        && event::DataEvent<typename Q::Event>
-    class Async<Q>
+    template<EveType EV> requires event::EventConstruction<typename EV::Event>
+            && event::DataEvent<typename EV::Event>
+    class Async<EV> : public Require<EV, features::Emit>
     {
-        using Event = Q::Event;
+        using Event = EV::Event;
         using T = Event::value_type;
         std::list<std::pair<typename Event::id, std::future<T>>> m_tasks;
 
@@ -32,7 +32,8 @@ namespace eve::modules {
         {
             m_tasks.push_back({eventName, std::move(future)});
         }
-        auto run(Q &spawn) -> void
+        // callback
+        auto emit(EV &spawn) -> void
         {
             std::erase_if(m_tasks.begin(), m_tasks.end(), [&spawn](auto &pair){
                 if(pair.second.wait_for(std::chrono::microseconds(0))!=std::future_status::timeout){
@@ -46,12 +47,11 @@ namespace eve::modules {
     };
 
 
-    template<class Q> requires features::SpawnEvent<Q>
-        && event::GenericEvent<typename Q::Event>
-        && event::EventConstruction<typename Q::Event>
-    class Async<Q>
+    template<EveType EV> requires  event::GenericEvent<typename EV::Event>
+        && event::EventConstruction<typename EV::Event>
+    class Async<EV> : public Require<EV, features::Emit>
     {
-        using Event = Q::Event;
+        using Event = EV::Event;
 
 
         struct FutureInterface {
@@ -74,7 +74,7 @@ namespace eve::modules {
             }
         };
 
-            std::list<std::unique_ptr<FutureInterface>> m_tasks;
+        std::list<std::unique_ptr<FutureInterface>> m_tasks;
 
     public:
         template<typename T>
@@ -82,7 +82,8 @@ namespace eve::modules {
         {
             m_tasks.emplace_back(std::make_unique<FutureHandle<T>>(eventName, std::move(future)));
         }
-        auto run(Q &spawn) -> void
+        // callback
+        auto emit(EV &spawn) -> void
         {
             std::erase_if(m_tasks.begin(), m_tasks.end(), [&spawn](auto &fh){
                 if(fh.ready()){

@@ -1,7 +1,7 @@
 #ifndef EVE_H_
 #define EVE_H_
 
-#include "Async.hpp"
+#include "EveDef.hpp"
 #include "Event.hpp"
 #include "Interval.hpp"
 #include "Reactive.hpp"
@@ -9,16 +9,17 @@
 
 namespace eve {
 
-    template<event_queue::EventQueue Q, template<class q> class ...Mp> requires (Module<Mp, Q> && ...)
-    class Eve : public Q, public Mp<Q>...
+    template<EveType EV, template<class> class ...Mp>
+    requires (Module<Mp, EV> && ...) && features::EveCore<EV>
+    class Eve : public EV, public Mp<EV>...
     {
     public:
-        using Queue = Q;
-        using Event = Queue::Event;
+        using Event = EV::Event;
         auto run() -> void
         {
-            (Mp<Q>::run(*this), ...);
-            Queue::pop(); // Consume event
+            (Mp<EV>::run(*this), ...); // sort Emit, Filter, Handle
+            if(!EV::empty()) EV::pop();
+
         }
     };
 

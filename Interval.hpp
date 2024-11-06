@@ -1,7 +1,9 @@
 #ifndef INTERVAL_H_
 #define INTERVAL_H_
 
+#include "EveDef.hpp"
 #include "EventQueue.hpp"
+#include "Feature.hpp"
 #include <chrono>
 #include <list>
 namespace eve {
@@ -15,10 +17,10 @@ namespace eve {
 
     namespace modules {
 
-        template<class Q> requires features::SpawnEvent<Q>
-        class Interval
+        template<EveType EV>
+        class Interval : public Require<EV, features::Emit>
         {
-            using Event = typename Q::Event;
+            using Event = typename EV::Event;
 
             struct TimedEvent {
                 std::chrono::time_point<std::chrono::steady_clock> creation;
@@ -35,7 +37,7 @@ namespace eve {
                 m_timeouts.emplace_back(std::chrono::steady_clock::now(),
                                         delay, persistent, std::forward<Event>(event));
             }
-            auto run(Q &spawn) -> void {
+            auto emit(EV &spawn) -> void {
                 m_timeouts.remove_if([&spawn](TimedEvent &te) -> bool{
                     auto now = std::chrono::steady_clock::now();
                     if(te.creation+te.timeout>now) return false;
