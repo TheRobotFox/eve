@@ -24,19 +24,9 @@ namespace eve::event {
     };
 
     template<class E>
-    concept GenericEvent = Event<E> && !DataEvent<E> && requires(E ev) {
-        {ev.template getData()};
-    };
-    template<class E, class T>
-    E construct(typename E::id &name, T data){return {name, data};}
-    template<class E>
-    concept EventConstruction = (DataEvent<E> &&
-        requires(E::id name, E::value_type &&data){
-            E{name, data}; // Trivial construction})
-        }) || (GenericEvent<E> && requires(E::id name){
-                typename E::id;
-                // construct<E>(name, 0);
-        });
+    concept GenericEvent = Event<E>; /*requires(E ev) {
+        ev.template getData();
+        };*/
 
     class EventAny
     {

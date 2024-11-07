@@ -8,6 +8,7 @@
 // Modules<EV> use Require<EV, Features...> to ensure EV supports requested Features.
 // Requires<EV, Features> will also use static dispatch to invoke callbacks from derived Module
 
+#include "Async.hpp"
 #include "EveDef.hpp"
 #include "Event.hpp"
 #include "EventQueue.hpp"
@@ -51,7 +52,7 @@ namespace eve {
     };
 
     template<event::Event e>
-    using Default = Eve<event_queue::DefaultQueue<e>, modules::Interval, modules::React>;
+    using Default = Eve<event_queue::DefaultQueue<e>, modules::Interval, modules::React, modules::Async>;
 }
 
 

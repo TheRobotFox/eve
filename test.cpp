@@ -3,6 +3,7 @@
 #include "Event.hpp"
 #include "Reactive.hpp"
 #include <chrono>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -41,6 +42,7 @@ int main()
     Test t(q);
 
     q.addInterval({"Test", 42}, 1300ms, false);
+    q.addAsync([](auto &&data)->eve::debug::EventAny{return {"Pi", data};}, std::async(std::launch::async, []{std::this_thread::sleep_for(1500ms); return 3.0;}));
 
     while(true){
         q.step();
