@@ -11,10 +11,35 @@ namespace eve {
     };
 
     template<EveType EV, template<class> class... features> requires (Feature<features, EV> && ...)
-    struct Require : public features<EV>... {
+    class Require : public features<EV>...
+    {
+        template<class C, template<class> class  F, template<class> class... Features>
+        constexpr auto runNot(EV &ev) -> void
+        {
+            if constexpr (!(std::same_as<F<EV>, Features<EV>> || ...))
+                static_cast<F<EV>&>(*this).template runFeature<C>(ev);
+        }
         template<class C>
+        constexpr auto runF(EV &/* ignore */) -> void
+        {}
+        template<class C, template<class> class  F, template<class> class... Features>
+        constexpr auto runF(EV &ev) -> void
+        {
+            ([&ev]<class T>(T& self){
+                if constexpr(std::same_as<F<EV>, T>){
+                    self.template runFeature<C>(ev);
+                }
+            }(static_cast<features<EV>&>(*this)), ...);
+            runF<C, Features...>(ev);
+        }
+    public:
+        template<class C, template<class> class... Features>
         auto run(this C& self, EV &ev){
-            (static_cast<features<EV>&>(self).template runFeature<C>(ev), ...);
+            self.template runF<C, Features...>(ev);
+        }
+        template<class C, template<class> class... Features>
+        auto runRest(this C& self, EV &ev){
+            (self.template runNot<C, features, Features...>(ev), ...);
         }
     };
 }

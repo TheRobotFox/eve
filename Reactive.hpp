@@ -131,43 +131,45 @@ namespace eve {
                 for_each(m_callbacks, [&ev](auto &f){f(ev.getData());});
                 for_each(m_callbacks2, [&ev](auto &f){f(ev.getData());});
             }
-            auto addHandle(std::move_only_function<void(T)> &&f)
+            auto addHandler(std::move_only_function<void(T)> &&f)
             {
                 m_callbacks2.push_back(f);
             }
-            auto addHandle(std::move_only_function<void(const T&)> &&f)
+            auto addHandler(std::move_only_function<void(const T&)> &&f)
             {
                 m_callbacks.push_back(f);
             }
 
         };
 
+
+        // Debug specialisation
         template<EveType EV> requires features::Listeners<EV> && features::SpawnEvent<EV>
         class _Reactive : public ReactiveInterface<typename EV::Event>
         {
             using Event = EV::Event;
             using Handlers = std::unordered_map<typename Event::id, std::move_only_function<void(const Event &)>>;
-            Handlers handlers;
         protected:
+            Handlers handlers;
 
-                EV &m_eve;
-                _Reactive(EV &e)
-                    : m_eve(e)
-                {}
-                ~_Reactive()
-                {
-                    std::ranges::for_each(handlers, [this](const Event::id &eid){
-                        m_eve.unsetListen(eid, this);
-                    }, &Handlers::value_type::first);
-                }
+            EV &m_eve;
+            _Reactive(EV &e)
+                : m_eve(e)
+            {}
+            ~_Reactive()
+            {
+                std::ranges::for_each(handlers, [this](const Event::id &eid){
+                    m_eve.unsetListen(eid, this);
+                }, &Handlers::value_type::first);
+            }
 
             public:
-                template<typename C, typename A>
-                auto addHandle(this C& self, Event::id &&evName, void(C::* fn)(A)) -> void
+                auto addHandler(Event::id &&evName, std::move_only_function<void(const Event &)> &&f) -> void
                 {
-                    self.m_eve.setListen(evName, &self);
-                    self.handlers[std::move(evName)] = std::move([&self, fn](const Event &ev)->void{(self.*fn)(std::forward<A>(ev.template getData<A>()));});
+                    m_eve.setListen(evName, this);
+                    handlers[std::move(evName)] = std::move(f);
                 }
+
                 auto notify(const Event &ev) -> void override
                 {
                     std::ranges::for_each(handlers, [&ev](auto &pair){
@@ -177,30 +179,23 @@ namespace eve {
         };
 
         template<EveType EV>
-        struct Reactive : public _Reactive<EV> {
-                Reactive(EV &e)
-                    : _Reactive<EV>(e)
-                {}
-        };
-
-
-        // Debug specialisation
-        template<EveType EV> requires std::same_as<typename EV::Queue::Event, event::Debug>
-        class Reactive<EV> : public _Reactive<EV>{
-        public:
-            template<class C, typename A>
-            auto addHandle(this C& self,
-                            EV::Event::id &&evName, void(C::* fn)(A),
-                            std::source_location src = std::source_location::current()) -> void
-            {
-                self.m_eve.setListen(evName, &self);
-                self.handlers.emplace({std::move(evName),
-                            std::function([&self, fn, src](const A&& ev){(self.*fn)(std::forward<A>(ev.template get<A>(src)));})});
-            }
+        struct Reactive : private _Reactive<EV> {
+            using Event = EV::Event;
             Reactive(EV &e)
                 : _Reactive<EV>(e)
             {}
+            template<typename C>
+            auto addHandler(this C& self, Event::id &&evName, void(C::* fn)()) -> void
+            {
+                static_cast<_Reactive<EV>&>(self).addHandler(std::move(evName), [&self, fn](const Event &/**/)->void{(self.*fn)();});
+            }
+            template<typename C, typename A>
+            auto addHandler(this C& self, Event::id &&evName, void(C::* fn)(A)) -> void
+            {
+                static_cast<_Reactive<EV>&>(self).addHandler(std::move(evName), [&self, fn](const Event &ev)->void{(self.*fn)(std::forward<A>(ev.template getData<A>()));});
+            }
         };
+
     }
 }
 

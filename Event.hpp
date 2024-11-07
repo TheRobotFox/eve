@@ -59,37 +59,5 @@ namespace eve::event {
         {}
     };
 
-    class Debug : public EventAny
-    {
-        std::stacktrace creation=std::stacktrace::current();
-        template<class T>
-        auto get(std::optional<std::source_location> handler_location={}) -> const T&
-        {
-            try{
-                return EventAny::getData<T>();
-            } catch(std::bad_any_cast e) {
-                if(auto src = handler_location){
-                std::println("[ERROR] in {}: std::any_cast<{}> failed handeling event for class {} at {}:{}!", std::source_location::current().function_name(),
-                             typeid(T).name(),
-                             src->function_name(),
-                             src->file_name(),
-                             src->line());
-                } else {
-                    std::println("[ERROR] in {}: std::any_cast<{}> failed unknown Handler! Please refer to stacktrace",
-                                 std::source_location::current().function_name(),
-                                 typeid(T).name());
-                }
-                std::println("Event({}) has type {} but expected {}", name, data.type().name(), typeid(T).name());
-                std::println("Note: Event created at\n{}", creation);
-                exit(5);
-            }
-        }
-    public:
-        using id = std::string;
-        using generic = std::true_type;
-    };
-
-
-
 }
 #endif // EVENT_H_

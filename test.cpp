@@ -1,4 +1,6 @@
+#include "Debug.hpp"
 #include "Eve.hpp"
+#include "Event.hpp"
 #include "Reactive.hpp"
 #include <chrono>
 #include <iostream>
@@ -18,20 +20,17 @@ class Test : public eve::reactive::Reactive<EV>
         Test(EV &ev)
             : eve::reactive::Reactive<EV>(ev)
         {
-            this->addHandle("Test", &Test::onTest);
-            this->addHandle("Pi", &Test::onTest);
-            // m_queue.addEvent("Pi", "c");
+            this->addHandler("Test", &Test::onTest);
         }
 };
 int main()
 {
     using namespace std::chrono_literals;
-    eve::Default q;
-
-    // q.addInterval(eve::event::EventAny{"Test", 6}, 400ms, true);
-    q.addEvent({"Pi", 8});
+    eve::Default<eve::debug::EventAny> q;
 
     Test t(q);
+
+    q.addEvent({"Test", '*'});
 
     while(true){
         q.run();

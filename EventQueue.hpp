@@ -4,6 +4,7 @@
 #include "Event.hpp"
 #include <algorithm>
 #include <concepts>
+#include <iostream>
 #include <queue>
 #include <string_view>
 #include <utility>
@@ -37,7 +38,6 @@ namespace eve {
         {
             template<class C>
             auto runFeature(H& events){
-                if(events.empty()) return;
                 static_cast<C&>(*this).handle(events.peek());
             }
         };
@@ -51,7 +51,7 @@ namespace eve {
         {
             template<class C>
             auto runFeature(HC& events){
-                if(!events.empty() && static_cast<bool>(static_cast<C&>(*this).filter(events.peek())))
+                if(static_cast<bool>(static_cast<C&>(*this).filter(events.peek())))
                     events.pop();
             }
         };
