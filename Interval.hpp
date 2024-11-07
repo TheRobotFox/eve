@@ -4,14 +4,22 @@
 #include "EveDef.hpp"
 #include "EventQueue.hpp"
 #include "Feature.hpp"
+#include <algorithm>
 #include <chrono>
+#include <concepts>
 #include <list>
+#include <vector>
 namespace eve {
 
+    namespace modules {
+
+        using IntervalHandle = void*;
+    }
     namespace features {
         template<class E>
-        concept SpawnInterval = requires(E &eve, E::Event ev, std::chrono::milliseconds ms) {
-            eve.addInterval(ev, ms, false);
+        concept SpawnInterval = requires(E &eve, E::Event ev, std::chrono::milliseconds ms, modules::IntervalHandle h) {
+            {eve.addInterval(ev, ms, false)} -> std::same_as<modules::IntervalHandle>;
+            eve.removeInterval(h);
         };
     }
 
@@ -29,13 +37,17 @@ namespace eve {
                 Event ev;
             };
 
-            std::list<TimedEvent> m_timeouts;
+            std::list<TimedEvent> m_timeouts; // list required for ptr valid
         public:
-
-            auto addInterval(Event &&event, std::chrono::milliseconds delay, bool persistent=false)
+            auto addInterval(Event &&event, std::chrono::milliseconds delay, bool persistent=false) -> IntervalHandle
             {
                 m_timeouts.emplace_back(std::chrono::steady_clock::now(),
                                         delay, persistent, std::forward<Event>(event));
+                return &m_timeouts.back();
+            }
+            auto removeInterval(IntervalHandle h) -> void
+            {
+                m_timeouts.remove_if([h](const TimedEvent &e){return &e==h;});
             }
             auto emit(EV &spawn) -> void {
                 m_timeouts.remove_if([&spawn](TimedEvent &te) -> bool{

@@ -87,6 +87,11 @@ namespace eve {
             }
             EventQueue(const EventQueue&) = delete;
             EventQueue() = default;
+
+            auto step() -> void {}
+            auto collect() -> void {}
+            auto handle() -> void {}
+            auto other() -> void {}
         };
         template<event::Event E>
         struct DefaultQueue : public EventQueue<std::queue<E>>

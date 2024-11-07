@@ -1,78 +1,68 @@
 #+title: Event System
-* Reactive System
-- Respond to Events
-- Control Flow via Events
-- Synchronous
-- Spawn async Tasks
+# * Reactive System
+# - Respond to Events
+# - Control Flow via Events
+# - Synchronous
+# - Spawn async Tasks
 
-** Concepts
-*** Collect Events
-Generators, Handlers
-(keypress, Timeout, Packet recieved)
-*** Consume Events
-Consume or partially Consume Events
-Sync and Async Actions -> Promise Queue
-Scheduler for Event Handeling?
-(keypress->GUIevent, network->update Value/create new Event)
-*** Reactive class
-gets event queue -> regsters notifys -> deaccloc on destruct
-call member functions (MACROS)
+# ** Concepts
+# *** Collect Events
+# Generators, Handlers
+# (keypress, Timeout, Packet recieved)
+# *** Consume Events
+# Consume or partially Consume Events
+# Sync and Async Actions -> Promise Queue
+# Scheduler for Event Handeling?
+# (keypress->GUIevent, network->update Value/create new Event)
+# *** Reactive class
+# gets event queue -> regsters notifys -> deaccloc on destruct
+# call member functions (MACROS)
 
-** Example
-- Click Event :: Spawn Click Event with screen pos
-- Analyse Screen pos -> spawn specific event (Card Clicked)
-- Card :: GUI Event + Send Packet
-- Network disconnet :: Warining with Timeout
-- AssetFiles Changed
-- Asset Loaded
+# ** Example
+# - Click Event :: Spawn Click Event with screen pos
+# - Analyse Screen pos -> spawn specific event (Card Clicked)
+# - Card :: GUI Event + Send Packet
+# - Network disconnet :: Warining with Timeout
+# - AssetFiles Changed
+# - Asset Loaded
 
-** Systems
-*** Event Queue
-- Contains spawned events
-- Forward Events to specified Handlers, multiple possible
-- Cleanup events once Handled
-- Thread Safe??
-- std::any
-- Can be optionally implemented
-  Template derive virtual
-*** Timeouts and Watchers
-- Set Timeouts -> spawn events
-- timestamp queue
-- Repeated Intervals
-*** Async Jobs
-- Spawn new Thread for Task -> wait for Promise -> Spawn Event
-*** Events
-concept
-- any Event
-- Debug Event
+# ** Systems
+# *** Event Queue
+# - Contains spawned events
+# - Forward Events to specified Handlers, multiple possible
+# - Cleanup events once Handled
+# - Thread Safe??
+# - std::any
+# - Can be optionally implemented
+#   Template derive virtual
+# *** Timeouts and Watchers
+# - Set Timeouts -> spawn events
+# - timestamp queue
+# - Repeated Intervals
+# *** Async Jobs
+# - Spawn new Thread for Task -> wait for Promise -> Spawn Event
+# *** Events
+# concept
+# - any Event
+# - Debug Event
 
-*** Reactive Class
-Register handelers to member functions
-cleanup on destruction
-*** Generics
-template lambdas
-
-
+# *** Reactive Class
+# Register handelers to member functions
+# cleanup on destruction
+# *** Generics
+# template lambdas
 
 
 
-* [ ] EventQueue
-- Core component of system
-- Generic std::list of Event type
-** Done addEvent(Event)
-** TODO Event lifetime
-- Modules other than Handler can mark Events for removal
 
-* IDEA Eve
-- Component implementing requested Features as Modules
-- EventQueue& is given to each Module to submitt / consume Events
+
+* Eve
+Group of Modules
 * [ ] Modules / Features
-- Extra Features can be implemented into Eve
-- classes can requires specific Feature set from Eve to work
-- Implementation with template Packs
-- Horizontal Architekture instead of Vertical
+- Module Implements a Set of Features
+- needs callback src_cpp[:exports code :eval never]{auto run(EV& ev) -> void}
 
-** [ ] Timeout / Intervals
+** [X] Timeout / Intervals
 - Queue a Event to be emitted after delay
 - Queue Events to be emitted in specific Intervals
 - Stop Intervals from beeing executed

@@ -8,6 +8,12 @@ namespace eve {
     template<class EV>
     concept EveType = requires(EV &e) {
         typename EV::Event;
+        {e.step()} -> std::same_as<void>;
+
+        // Costum stages
+        {e.collect()} -> std::same_as<void>;
+        {e.handle()} -> std::same_as<void>;
+        {e.other()} -> std::same_as<void>;
     };
 
     template<template<class Q> class T, class Q>

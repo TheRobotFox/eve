@@ -1,12 +1,18 @@
 #ifndef EVE_H_
 #define EVE_H_
 
+// EV => EventSystem
+// EV<Modules> | Modules => Subsystems supplying Features
+// Features => tasks eg. SpawnEvent, Handle, Filter, Add Resource ...
+//
+// Modules<EV> use Require<EV, Features...> to ensure EV supports requested Features.
+// Requires<EV, Features> will also use static dispatch to invoke callbacks from derived Module
+
 #include "EveDef.hpp"
 #include "Event.hpp"
 #include "EventQueue.hpp"
 #include "Interval.hpp"
 #include "Reactive.hpp"
-#include <type_traits>
 
 namespace eve {
 
@@ -16,18 +22,29 @@ namespace eve {
     {
     public:
         using Event = EV::Event;
-        auto run() -> void
+        auto collect() -> void
         {
+            EV::collect();
             (Mp<EV>::template run<Mp<EV>, features::Emit>(*this), ...);
-
-            if(!EV::empty()){
-                (Mp<EV>::template run<Mp<EV>, features::Filter,
+        }
+        auto handle() -> void
+        {
+            EV::handle();
+            (Mp<EV>::template run<Mp<EV>, features::Filter,
                                               features::Handle>(*this), ...);
-            }
-
+        }
+        auto other() -> void
+        {
+            EV::other();
             (Mp<EV>::template runRest<Mp<EV>, features::Emit,
                                               features::Filter,
                                               features::Handle>(*this), ...);
+        }
+        auto step() -> void
+        {
+
+            collect();
+            if(!EV::empty()) handle();
             if(!EV::empty()) EV::pop();
 
         }
