@@ -35,6 +35,7 @@ class Test : public eve::reactive::Reactive<EV>
             inv = ev.addInterval({"Pi", 3.141}, 400ms, true);
         }
 };
+
 int main()
 {
     eve::Default<eve::debug::EventAny> q;
@@ -42,7 +43,7 @@ int main()
     Test t(q);
 
     q.addInterval({"Test", 42}, 1300ms, false);
-    q.addAsync([](auto &&data)->eve::debug::EventAny{return {"Pi", data};}, std::async(std::launch::async, []{std::this_thread::sleep_for(1500ms); return 3.0;}));
+    q.addAsync("Pi", std::async(std::launch::async, []{std::this_thread::sleep_for(1500ms); return 3.0;}));
 
     while(true){
         q.step();

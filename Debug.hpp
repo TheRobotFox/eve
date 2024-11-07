@@ -37,8 +37,8 @@ namespace eve {
             using id = std::string;
             using generic = std::true_type;
                 template<class T>
-                EventAny(id &&name, T &&data, std::source_location src = std::source_location::current())
-                    : event::EventAny(name, std::forward<T>(data)), m_src(src)
+                EventAny(id name, T &&data, std::source_location src = std::source_location::current())
+                    : event::EventAny(std::move(name), std::forward<T>(data)), m_src(src)
                 {}
         };
 
