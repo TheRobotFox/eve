@@ -24,9 +24,11 @@ namespace eve::event {
     };
 
     template<class E>
-    concept GenericEvent = Event<E>; /*requires(E ev) {
-        ev.template getData();
-        };*/
+    concept GenericEvent = Event<E> && !requires(E &ev) {
+        typename E::value_type;
+    } && requires(E &ev) {
+        ev.template getData<int>();
+    };
 
     class EventAny
     {

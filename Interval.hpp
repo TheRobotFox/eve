@@ -39,10 +39,10 @@ namespace eve {
 
             std::list<TimedEvent> m_timeouts; // list required for ptr valid
         public:
-            auto addInterval(Event &&event, std::chrono::milliseconds delay, bool persistent=false) -> IntervalHandle
+            auto addInterval(const Event &&event, std::chrono::milliseconds delay, bool persistent=false) -> IntervalHandle
             {
                 m_timeouts.emplace_back(std::chrono::steady_clock::now(),
-                                        delay, persistent, std::forward<Event>(event));
+                                        delay, persistent, std::move(event));
                 return &m_timeouts.back();
             }
             auto removeInterval(IntervalHandle h) -> void

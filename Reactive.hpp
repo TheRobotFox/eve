@@ -179,11 +179,60 @@ namespace eve {
         };
 
         template<EveType EV>
-        struct Reactive : private _Reactive<EV> {
+        struct Reactive;
+
+        template<EveType EV> requires event::DataEvent<typename EV::Event>
+        struct Reactive<EV> : public ReactiveInterface<typename EV::Event>
+        {
+
+            using Event = EV::Event;
+            using T = EV::Event::value_type;
+            using Handlers = std::unordered_map<typename Event::id, std::move_only_function<void(const T &)>>;
+        protected:
+            Handlers handlers;
+
+            EV &m_eve;
+            Reactive(EV &e)
+                : m_eve(e)
+            {}
+            ~Reactive()
+            {
+                std::ranges::for_each(handlers, [this](const Event::id &eid){
+                    m_eve.unsetListen(eid, this);
+                }, &Handlers::value_type::first);
+            }
+
+            public:
+                template<class C>
+                auto addHandler(this C& self, Event::id &&evName, void (C::* fn)(const T&)) -> void
+                {
+                    self.m_eve.setListen(evName, &self);
+                    self.handlers[std::move(evName)] = std::move([&self, fn](const T& d){(self.*fn)(d);});
+                }
+                template<class C>
+                auto addHandler(this C& self, Event::id &&evName, void (C::* fn)()) -> void
+                {
+                    self.m_eve.setListen(evName, &self);
+                    self.handlers[std::move(evName)] = std::move([&self, fn](const T& /* ignore */){(self.*fn)();});
+                }
+
+                auto notify(const Event &ev) -> void override
+                {
+                    std::ranges::for_each(handlers, [&ev](auto &pair){
+                        if(ev.name==pair.first) pair.second(ev.getData());
+                    });
+                }
+        };
+
+
+
+        template<EveType EV> requires event::GenericEvent<typename EV::Event>
+        struct Reactive<EV> : private _Reactive<EV> {
             using Event = EV::Event;
             Reactive(EV &e)
                 : _Reactive<EV>(e)
             {}
+            protected:
             template<typename C>
             auto addHandler(this C& self, Event::id &&evName, void(C::* fn)()) -> void
             {

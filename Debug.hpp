@@ -47,7 +47,7 @@ namespace eve {
 
     namespace reactive {
         
-        template<EveType EV> requires std::same_as<typename EV::Event, debug::EventAny>
+        template<EveType EV> requires std::same_as<typename EV::Event, debug::EventAny> && event::GenericEvent<typename EV::Event>
         struct Reactive<EV> : private _Reactive<EV>{
             using Event = EV::Event;
             template<typename C>

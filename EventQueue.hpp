@@ -15,9 +15,10 @@ namespace eve {
     namespace features {
 
         template<class T>
-        concept SpawnEvent = event::Event<typename T::Event> && requires(T& se, T::Event &&ev)
+        concept SpawnEvent = event::Event<typename T::Event> && requires(T& se, const T::Event &&ev)
         {
             {se.addEvent(std::move(ev))} -> std::same_as<void>;
+            // se.template emplaceEvent;
         };
         template<SpawnEvent S>
         struct Emit
@@ -69,9 +70,14 @@ namespace eve {
         public:
             using Event = Queue::value_type;
 
+            template<class... Args>
+            auto emplaceEvent(Args... args) -> void
+            {
+                m_queue.emplace(std::forward<Args>(args)...);
+            }
             auto addEvent(const Event &event) -> void
             {
-                m_queue.emplace(event);
+                m_queue.push(event);
             }
             auto peek() -> const Event&
             {

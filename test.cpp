@@ -2,6 +2,7 @@
 #include "Eve.hpp"
 #include "Event.hpp"
 #include "Reactive.hpp"
+#include "Reve/Reve.hpp"
 #include <chrono>
 #include <future>
 #include <iostream>
@@ -39,13 +40,17 @@ class Test : public eve::reactive::Reactive<EV>
 int main()
 {
     eve::Default<eve::debug::EventAny> q;
+    reve::ReveStandalone assets;
 
     Test t(q);
 
     q.addInterval({"Test", 42}, 1300ms, false);
     q.addAsync("Pi", std::async(std::launch::async, []{std::this_thread::sleep_for(1500ms); return 3.0;}));
 
+    assets.get<int>("res.txt");
+
     while(true){
         q.step();
+        assets.run();
     }
 }
